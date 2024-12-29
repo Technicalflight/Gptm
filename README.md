@@ -4,9 +4,9 @@
   </a>
 </div>
 
-    [![GitHub forks](https://img.shields.io/github/forks/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/network)
-  [![GitHub stars](https://img.shields.io/github/stars/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/stargazers)
-    [![GitHub watchers](https://img.shields.io/github/watchers/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm)
+[![GitHub forks](https://img.shields.io/github/forks/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/network)  
+[![GitHub stars](https://img.shields.io/github/stars/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/stargazers)
+[![GitHub watchers](https://img.shields.io/github/watchers/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm)
 
 # Gptm
 
