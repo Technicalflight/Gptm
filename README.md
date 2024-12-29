@@ -98,7 +98,7 @@ npm run build
 
 ## 🤗赞助
 
-[爱发电] (https://afdian.com/a/aiGptm)
+![爱发电]([图片地址](https://pic1.afdiancdn.com/static/img/logo-santahat_2.png)) (https://afdian.com/a/aiGptm)
 
 
 ## ⚠️ 免责声明
