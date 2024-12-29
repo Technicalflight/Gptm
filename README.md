@@ -102,9 +102,7 @@ npm run build
   <a href="https://afdian.com/a/aiGptm">
     <img src="https://pic1.afdiancdn.com/static/img/welcome/button-sponsorme.png" width="200" alt="爱发电">
   </a>
-</div>
-<div>
-  <a href="https://img.picui.cn/free/2024/10/26/671d0423b5462.jpg">
+    <a href="https://img.picui.cn/free/2024/10/26/671d0423b5462.jpg">
     <img src="https://img.picui.cn/free/2024/12/30/677177cb4e884.png" width="200" alt="微信打赏">
   </a>
 </div>
