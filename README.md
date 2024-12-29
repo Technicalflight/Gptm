@@ -105,6 +105,9 @@ npm run build
     <a href="https://img.picui.cn/free/2024/10/26/671d0423b5462.jpg">
     <img src="https://img.picui.cn/free/2024/12/30/677177cb4e884.png" width="200" alt="微信打赏">
   </a>
+      <a href="https://img.picui.cn/free/2024/12/30/67717aab2649a.png">
+    <img src="https://img.picui.cn/free/2024/12/30/67717a60cc243.png" width="200" alt="支付宝打赏">
+  </a>
 </div>
 
 ## 🙏 开源致谢
