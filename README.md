@@ -96,6 +96,10 @@ npm run build
 
 欢迎提交 Issue 或 Pull Request 来帮助改进这个项目。
 
+## 🤗赞助
+
+[爱发电] (https://afdian.com/a/aiGptm)
+
 
 ## ⚠️ 免责声明
 
