@@ -3,14 +3,14 @@
     <img src="https://github.com/Technicalflight/Gptm/blob/4d8bd9e9e550d5e334e11da772e53b356219d91d/src/renderer/src/assets/logo.jpg" width="150" height="150" alt="banner" />
   </a>
 
-[![GitHub forks](https://img.shields.io/github/forks/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/network)  
+[![GitHub forks](https://img.shields.io/github/forks/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/network)  
 [![GitHub stars](https://img.shields.io/github/stars/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/stargazers)
 [![GitHub watchers](https://img.shields.io/github/watchers/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm)
-
 
 </div>
 
 <video src="https://cloud.wujiyan.cc/f/GP49h7/%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D.mp4"></video>
+
 
 
 
