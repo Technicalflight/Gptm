@@ -54,6 +54,14 @@
 - 🔍 高级搜索功能
 - 🔒 端到端加密
 
+# 🎇 运行截图
+
+![](./login.png)
+![](./home.png)
+![](./qb.png)
+![](./prompt.png)
+![](./set.png)
+
 ## 🛠️ 技术栈
 
 - 框架: Vue 3 + TypeScript
