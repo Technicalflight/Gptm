@@ -1,3 +1,9 @@
+<div align="center">
+  <a href="https://github.com/Technicalflight/Gptm/releases">
+    <img src="https://github.com/Technicalflight/Gptm/blob/4d8bd9e9e550d5e334e11da772e53b356219d91d/src/renderer/src/assets/logo.jpg" width="150" height="150" alt="banner" />
+  </a>
+</div>
+
 # Gptm
 
 一个基于 Electron + Vue3 + TypeScript 开发的现代化 AI 聊天客户端。
@@ -100,4 +106,9 @@ npm run build
 
 ## 📄 开源协议
 
+[LICENSE](./LICENSE)
 
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Technicalflight/Gptm&type=Timeline)](https://star-history.com/#Technicalflight/Gptm&Timeline)
