@@ -7,11 +7,10 @@
 [![GitHub stars](https://img.shields.io/github/stars/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/stargazers)
 [![GitHub watchers](https://img.shields.io/github/watchers/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm)
 
-</div>
 
 <video src="https://gptm.wonai.top/%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D.mp4?e=1735581679&token=kk-Sybi0OocSdFNz2YSD19MXc2N8CX5L4-c2qiyn:F84EorhQqyUzv19Eog3Uj61-08o=" controls="controls" width="500" height="300"></video>
 
-
+</div>
 
 # Gptm
 
