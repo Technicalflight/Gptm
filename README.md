@@ -100,6 +100,37 @@ npm run build
 
 [爱发电](https://afdian.com/a/aiGptm)
 
+## 🙏 开源致谢
+
+本项目对于使用到了的库或工具，在此特别感谢（排名不分先后，若有遗漏，欢迎反馈！）：
+
+### 核心框架
+- [Vue.js](https://github.com/vuejs/core) - 渐进式 JavaScript 框架
+- [Electron](https://github.com/electron/electron) - 使用 JavaScript 构建跨平台桌面应用
+- [TypeScript](https://github.com/microsoft/TypeScript) - JavaScript 的超集，添加静态类型
+- [electron-vite](https://github.com/alex8088/electron-vite) - Electron + Vite 整合框架
+
+### UI 组件
+- [Element Plus](https://github.com/element-plus/element-plus) - 基于 Vue 3 的组件库
+- [highlight.js](https://github.com/highlightjs/highlight.js) - 代码语法高亮库
+
+### 路由和状态管理
+- [Vue Router](https://github.com/vuejs/router) - Vue.js 官方路由
+- [Pinia](https://github.com/vuejs/pinia) - Vue.js 状态管理库
+
+### 开发工具
+- [Vite](https://github.com/vitejs/vite) - 下一代前端构建工具
+- [ESLint](https://github.com/eslint/eslint) - 可扩展的 JavaScript 代码检查工具
+
+### 工具库
+- [markdown-it](https://github.com/markdown-it/markdown-it) - Markdown 解析器
+
+### Electron 相关
+- [electron-builder](https://github.com/electron-userland/electron-builder) - Electron 应用打包工具
+- [electron-updater](https://github.com/electron-userland/electron-updater) - Electron 自动更新模块
+- [@electron/remote](https://github.com/electron/remote) - Electron 远程模块
+- [@electron-toolkit/utils](https://github.com/alex8088/electron-toolkit) - Electron 工具集
+
 ## ⚠️ 免责声明
 
 1. 本项目仅作为开源的聊天客户端工具，供学习和研究使用。
