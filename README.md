@@ -6,13 +6,8 @@
 [![GitHub forks](https://img.shields.io/github/forks/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/network)  
 [![GitHub stars](https://img.shields.io/github/stars/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm/stargazers)
 [![GitHub watchers](https://img.shields.io/github/watchers/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm)
+![视频演示](https://cloud.wujiyan.cc/f/0peBuk/%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D.gif)
 
-</div>
-
-<div>
-  <video width="320" height="240" controls>
-    <source src="https://cloud.wujiyan.cc/f/GP49h7/%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D.mp4" type="video/mp4">
-  </video>
 </div>
 
 
