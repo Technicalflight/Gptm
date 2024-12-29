@@ -107,3 +107,8 @@ npm run build
 ## 📄 开源协议
 
 [LICENSE](./LICENSE)
+
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Technicalflight/Gptm&type=Timeline)](https://star-history.com/#Technicalflight/Gptm&Timeline)
