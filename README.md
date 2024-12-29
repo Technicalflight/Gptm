@@ -96,6 +96,14 @@ npm run build
 
 欢迎提交 Issue 或 Pull Request 来帮助改进这个项目。
 
+## 赞助者
+
+感谢这些来自爱发电的赞助者：
+
+<!-- AFDIAN-ACTION:START -->
+<!-- AFDIAN-ACTION:END -->
+
+
 ## ⚠️ 免责声明
 
 1. 本项目仅作为开源的聊天客户端工具，供学习和研究使用。
