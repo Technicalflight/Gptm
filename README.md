@@ -99,7 +99,9 @@ npm run build
 ## 🤗赞助
 
 <div>
-<a href="https://afdian.com/a/aiGptm">< img width="200" src="https://pic1.afdiancdn.com/static/img/welcome/button-sponsorme.png" alt="爱发电"></a >
+  <a href="https://afdian.com/a/aiGptm">
+    <img src="https://pic1.afdiancdn.com/static/img/welcome/button-sponsorme.png" width="200" alt="爱发电">
+  </a>
 </div>
 
 ## 🙏 开源致谢
