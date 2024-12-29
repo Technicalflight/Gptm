@@ -98,7 +98,7 @@ npm run build
 
 ## 🤗赞助
 
-[爱发电](https://afdian.com/a/aiGptm)
+<a href="https://afdian.com/a/aiGptm">< img width="200" src="https://pic1.afdiancdn.com/static/img/welcome/button-sponsorme.png" alt=""></a >
 
 ## 🙏 开源致谢
 
