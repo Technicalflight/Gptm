@@ -8,7 +8,7 @@
 [![GitHub watchers](https://img.shields.io/github/watchers/Technicalflight/Gptm.svg)](https://github.com/Technicalflight/Gptm)
 
 
-<video src="https://gptm.wonai.top/%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D.mp4?e=1735581679&token=kk-Sybi0OocSdFNz2YSD19MXc2N8CX5L4-c2qiyn:F84EorhQqyUzv19Eog3Uj61-08o=" controls="controls" width="500" height="300"></video>
+<video src="https://cloud.wujiyan.cc/f/GP49h7/%E5%8A%9F%E8%83%BD%E4%BB%8B%E7%BB%8D.mp4" controls="controls" width="500" height="300"></video>
 
 </div>
 
