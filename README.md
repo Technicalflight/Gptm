@@ -60,7 +60,7 @@
 ![](./home.png)
 ![](./qb.png)
 ![](./prompt.png)
-![](./set.png)
+![](./set.jpg)
 
 ## 🛠️ 技术栈
 
