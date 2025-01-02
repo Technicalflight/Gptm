@@ -1,0 +1,16 @@
+{
+  "id": "translator",
+  "name": "快速翻译插件",
+  "version": "1.0.0",
+  "description": "通过特定命令快速翻译文本，支持多种语言互译",
+  "author": "GPTM Team",
+  "enabled": true,
+  "config": {
+    "defaultSourceLang": "auto",
+    "defaultTargetLang": "zh",
+    "triggerCommand": "/tr"
+  },
+  "code": {
+    "handle": "async function (content, context) {\n    try {\n        const command = this.config.triggerCommand;\n        if (!content.startsWith(command)) {\n            return content;\n        }\n        \n        // 移除命令前缀\n        const text = content.slice(command.length).trim();\n        \n        // 这里应该调用实际的翻译API，这里只做示例\n        const translatedText = `[翻译] ${text}`;\n        \n        return translatedText;\n    } catch (error) {\n        console.error('翻译失败:', error);\n        return content;\n    }\n}"
+  }
+} 

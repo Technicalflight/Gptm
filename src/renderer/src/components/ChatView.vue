@@ -385,7 +385,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OpenAI from 'openai'
-import { Delete } from '@element-plus/icons-vue'
+import { Setting, Delete } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/vs2015.css'
@@ -568,7 +568,7 @@ const switchModel = (modelId: string) => {
   }
 }
 
-// 添��模型设置持久化相关的方法
+// 添加模型设置持久化相关的方法
 const loadModelSettings = (modelId: string) => {
   try {
     const settings = localStorage.getItem(`model_settings_${modelId}`)
@@ -784,6 +784,10 @@ const sendMessage = async () => {
       }
     }
 
+    // 调用插件处理消息
+    messageContent = await handlePluginCall(messageContent)
+    console.log('处理后的消息内容:', messageContent) // 添加日志
+
     const userMessage = {
       id: Date.now().toString(),
       role: 'user' as const,
@@ -792,7 +796,7 @@ const sendMessage = async () => {
     }
     currentChat.messages.push(userMessage)
     messageInput.value = ''
-    removeFile() // 清除文件
+    removeFile()
 
     const assistantMessage = {
       id: (Date.now() + 1).toString(),
@@ -1192,6 +1196,168 @@ onMounted(() => {
     console.error('加载最近使用表情失败:', error)
   }
 })
+
+// 定义插件接口
+interface PluginInterface {
+  id: string;
+  name: string;
+  version: string;
+  enabled: boolean;
+  handle: (content: string, context: any) => Promise<string>;
+  code: any;
+  config: any; // 允许任意配置项
+}
+
+
+// 创建插件管理器
+const createPluginManager = () => {
+  // 获取已启用的插件
+  const getEnabledPlugins = (): PluginInterface[] => {
+    try {
+      const plugins = JSON.parse(localStorage.getItem('plugins') || '[]');
+      return plugins
+        .filter((p: any) => p.enabled)
+        .map((p: any): PluginInterface => {
+          // 确保 config 是对象
+          p.config = p.config || {};
+          // 将 handle 字符串转换为函数
+          if (typeof p.code.handle === 'string') {
+            p.handle = (content: string, context: any): Promise<string> => {
+              return new Promise<string>((resolve, reject) => {
+                try {
+                  // 创建函数，返回插件处理函数
+                  const handleFunction = new Function('return ' + p.code.handle + ';');
+                  const pluginHandle = handleFunction();
+                  if (typeof pluginHandle !== 'function') {
+                    reject(new Error('Plugin handle is not a function'));
+                  } else {
+                    const boundHandle = pluginHandle.bind(p);
+                    const result = boundHandle(content, context);
+                    if (result instanceof Promise) {
+                      result.then(resolve).catch(reject);
+                    } else {
+                      resolve(result);
+                    }
+                  }
+                } catch (error) {
+                  reject(error);
+                }
+              });
+            };
+          } else {
+            p.handle = p.code.handle;
+          }
+          return p as PluginInterface;
+        });
+    } catch (error) {
+      console.error('获取插件列表失败:', error);
+      return [];
+    }
+  };
+
+  // 调用插件
+  const callPlugin = async (pluginId: string, content: string, context: any): Promise<string> => {
+    try {
+      const plugins = getEnabledPlugins();
+      const plugin = plugins.find(p => p.id === pluginId);
+          
+      if (!plugin) {
+        throw new Error('插件未找到或未启用');
+      }
+      
+      if (typeof plugin.code === 'object' && typeof plugin.code.handle === 'string') {
+        try {
+          //console.log(plugin.code.handle)
+          // 解析 JSON 字符串，去掉外层双引号
+          //const funcString = JSON.parse(plugin.code.handle);
+          ////若JSON.parse解析报错，则采取其他方法来进行解析
+          //if (!funcString) {
+          //  funcString = plugin.code.handle;
+          //  console.log(funcString)
+          //}
+//
+          //console.log(funcString)
+          //// 确保 funcString 是一个函数表达式，包裹在括号中
+          //const wrappedFuncString = '(' + funcString + ')';
+          //console.log(wrappedFuncString)
+          const wrappedFuncString = eval('(' + plugin.code.handle + ')');
+          // 生成函数并赋值给 plugin.handle
+          plugin.handle = new Function('return ' + wrappedFuncString)();
+        } catch (e: unknown) {
+          console.error('生成插件', plugin.id, '的 handle 函数失败:', e);
+          if (e instanceof Error) {
+            throw new Error(`插件 ${plugin.id} 的 handle 生成失败: ${e.message}`);
+          }
+          throw new Error(`插件 ${plugin.id} 的 handle 生成失败: ${String(e)}`);
+        }
+      }
+
+      // 确保 handle 是函数
+      if (typeof plugin.handle !== 'function') {
+        throw new Error(`插件 ${plugin.id} 的 handle 不是函数`);
+      }
+
+      // 调用 handle 函数
+      return await plugin.handle(content, context);
+    } catch (error) {
+      console.error('调用插件失败:', error);
+      throw error;
+    }
+  };
+
+  return {
+    getEnabledPlugins,
+    callPlugin
+  };
+};
+
+// 创建插件管理器实例
+const pluginManager = createPluginManager();
+
+// 在 script setup 中添加插件相关的状态和方法
+const enabledPlugins = ref<PluginInterface[]>([]);
+
+// 加载启用的插件列表
+const loadEnabledPlugins = () => {
+  enabledPlugins.value = pluginManager.getEnabledPlugins();
+};
+
+const handlePluginCall = async (content: string) => {
+  try {
+    const enabledPlugins = pluginManager.getEnabledPlugins();
+    console.log('启用的插件:', enabledPlugins.map(p => p.id)); // 输出启用的插件ID
+    let processedContent = content;
+    for (const plugin of enabledPlugins) {
+      try {
+        const context = { model: currentModel, chat: currentChat };
+        console.log(`调用插件: ${plugin.id}`); // 输出正在调用的插件ID
+        processedContent = await pluginManager.callPlugin(plugin.id, processedContent, context);
+      } catch (error) {
+        console.error(`插件 ${plugin.id} 处理失败:`, error);
+      }
+    }
+    return processedContent;
+  } catch (error) {
+    console.error('插件处理失败:', error);
+    return content;
+  }
+};
+
+// 判断是否在Electron环境中
+const isElectron = () => {
+  return window && window.process && window.process.type;
+};
+
+// 在组件挂载时加载插件
+onMounted(() => {
+  loadEnabledPlugins();
+  if (isElectron()) {
+    window.electron.ipcRenderer.on('plugins-changed', () => {
+      loadEnabledPlugins();
+    });
+  }
+  // ... existing onMounted code ...
+});
 </script>
 
 <style scoped>

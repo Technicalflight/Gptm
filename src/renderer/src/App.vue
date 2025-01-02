@@ -44,6 +44,11 @@
               <el-icon><Collection /></el-icon>
             </div>
           </router-link>
+          <router-link to="/plugins" custom v-slot="{ navigate, isActive }">
+            <div class="nav-item" :class="{ active: isActive }" @click="navigate">
+              <el-icon><Connection /></el-icon>
+            </div>
+          </router-link>
         </div>
         
         <!-- 底部工具栏 -->
@@ -71,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { UserFilled, SwitchButton, MilkTea, Coin, Collection } from '@element-plus/icons-vue'
+import { UserFilled, SwitchButton, MilkTea, Coin, Collection, Connection } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { computed } from 'vue'
 import { ElMessageBox } from 'element-plus'

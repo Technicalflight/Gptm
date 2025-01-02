@@ -85,11 +85,11 @@ const loading = reactive({
 })
 
 // GitHub OAuth 配置
-const GITHUB_CLIENT_ID = 'xxxxxxxxxxxxxxxxxxx'
+const GITHUB_CLIENT_ID = 'Ov23li70CU4nJy59pzHS'
 const GITHUB_REDIRECT_URI = 'http://localhost:5173'
 
 // Linux DO OAuth 配置
-const LINUXDO_CLIENT_ID = 'xxxxxxxxxxxxxxxxxxx'
+const LINUXDO_CLIENT_ID = 'K8qpsRERNbQ6De4h8Qcjjyyp4KAm88jh'
 const LINUXDO_REDIRECT_URI = 'http://localhost:5173/callback'
 const LINUXDO_AUTH_ENDPOINT = 'https://connect.linux.do/oauth2/authorize'
 

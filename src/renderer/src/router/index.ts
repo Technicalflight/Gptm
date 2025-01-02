@@ -5,6 +5,7 @@ import SettingsView from '../components/SettingsView.vue'
 import LoginView from '../components/LoginView.vue'
 import SponsorView from '../components/SponsorView.vue'
 import PromptMarketView from '../components/PromptMarketView.vue'
+import PluginView from '../components/PluginView.vue'
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -40,6 +41,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/prompt-market',
     name: 'prompt-market',
     component: PromptMarketView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/plugins',
+    name: 'plugins',
+    component: PluginView,
     meta: { requiresAuth: true }
   }
 ]

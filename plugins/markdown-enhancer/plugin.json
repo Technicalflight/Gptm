@@ -1,0 +1,16 @@
+{
+  "id": "markdown-enhancer",
+  "name": "Markdown美化增强",
+  "version": "1.0.0",
+  "description": "自动美化Markdown格式，添加目录，优化排版",
+  "author": "GPTM Team",
+  "enabled": true,
+  "config": {
+    "autoToc": true,
+    "autoFormat": true,
+    "addLineSpacing": true
+  },
+  "code": {
+    "handle": "async function (content, context) {\n    try {\n        if (!content.includes('```markdown') && !content.includes('# ')) {\n            return content;\n        }\n\n        let enhancedContent = content;\n        \n        // 添加目录\n        if (this.config.autoToc) {\n            const headers = content.match(/^#{1,6}.+$/gm) || [];\n            if (headers.length > 0) {\n                const toc = '## 目录\\n' + headers\n                    .map(h => {\n                        const level = h.match(/^#+/)[0].length;\n                        const text = h.replace(/^#+\\s*/, '');\n                        return '  '.repeat(level-1) + '- ' + text;\n                    })\n                    .join('\\n');\n                enhancedContent = toc + '\\n\\n' + enhancedContent;\n            }\n        }\n        \n        // 优化排版\n        if (this.config.autoFormat) {\n            enhancedContent = enhancedContent\n                .replace(/([^\\n])\\n{1}([^\\n])/g, '$1\\n\\n$2')\n                .replace(/\\n{3,}/g, '\\n\\n');\n        }\n        \n        return enhancedContent;\n    } catch (error) {\n        console.error('Markdown增强失败:', error);\n        return content;\n    }\n}"
+  }
+} 

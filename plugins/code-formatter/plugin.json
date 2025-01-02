@@ -1,0 +1,15 @@
+{
+  "id": "code-formatter",
+  "name": "代码格式化插件",
+  "version": "1.0.0",
+  "description": "自动检测并格式化代码块，支持多种编程语言",
+  "author": "GPTM Team",
+  "enabled": true,
+  "config": {
+    "autoFormat": true,
+    "languages": ["javascript", "python", "java", "cpp", "html", "css"]
+  },
+  "code": {
+    "handle": "async function (content, context) {\n    try {\n        if (!this.config.autoFormat) {\n            return content;\n        }\n        \n        // 检测代码块的正则表达式\n        const codeBlockRegex = /```([\\w-]+)?\\n([\\s\\S]+?)```/g;\n        \n        return content.replace(codeBlockRegex, (match, language, code) => {\n            if (!language || !this.config.languages.includes(language.toLowerCase())) {\n                return match;\n            }\n            \n            // 基本的代码格式化\n            let formattedCode = code\n                .split('\\n')\n                .map(line => line.trim())\n                .filter(line => line)\n                .join('\\n');\n            \n            return '```' + language + '\\n' + formattedCode + '\\n```';\n        });\n    } catch (error) {\n        console.error('代码格式化失败:', error);\n        return content;\n    }\n}"
+  }
+} 
