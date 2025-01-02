@@ -69,6 +69,7 @@
 ![](./qb.png)
 ![](./prompt.png)
 ![](./set.jpg)
+![](./plugin.png)
 
 ## 🛠️ 技术栈
 
