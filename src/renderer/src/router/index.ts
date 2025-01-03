@@ -6,6 +6,8 @@ import LoginView from '../components/LoginView.vue'
 import SponsorView from '../components/SponsorView.vue'
 import PromptMarketView from '../components/PromptMarketView.vue'
 import PluginView from '../components/PluginView.vue'
+import KnowledgeBaseView from '../components/KnowledgeBaseView.vue'
+
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -47,6 +49,12 @@ const routes: Array<RouteRecordRaw> = [
     path: '/plugins',
     name: 'plugins',
     component: PluginView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/knowledge-base',
+    name: 'knowledge-base',
+    component: KnowledgeBaseView,
     meta: { requiresAuth: true }
   }
 ]

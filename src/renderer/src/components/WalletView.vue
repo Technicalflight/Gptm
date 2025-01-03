@@ -119,112 +119,221 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 添加密码输入对话框 -->
+    <el-dialog
+      v-model="passwordDialogVisible"
+      title="密码输入"
+      width="400px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+    >
+      <el-form :model="passwordForm" @submit.prevent="handlePasswordSubmit">
+        <el-form-item label="密码" :error="passwordForm.error">
+          <el-input
+            v-model="passwordForm.password"
+            type="password"
+            placeholder="请输入密码"
+            show-password
+            @keyup.enter="handlePasswordSubmit"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="handlePasswordCancel">取消</el-button>
+          <el-button type="primary" @click="handlePasswordSubmit">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Plus, Refresh } from '@element-plus/icons-vue'
+import { ref, onMounted } from 'vue';
+import { ElMessage } from 'element-plus';
+import { Plus, Refresh } from '@element-plus/icons-vue';
+import { deriveKey } from '../script/cryptoUtils'; // 引入加密工具函数
 
-const format = (percentage: number) => percentage + '% 余额'
+const format = (percentage: number) => percentage + '% 余额';
 
 // 添加弹窗相关的状态
-const dialogVisible = ref(false)
+const dialogVisible = ref(false);
 const currentModel = ref({
   name: '',
   apiKey: '',
   baseUrl: ''
-})
+});
+
+// 定义加密相关常量
 
 // 添加余额状态
 interface ModelBalance {
-  available: number
-  used: number
-  total: number
-  status: 'success' | 'error' | 'loading'
-  lastUpdate: number
+  available: number;
+  used: number;
+  total: number;
+  status: 'success' | 'error' | 'loading';
+  lastUpdate: number;
 }
 
 // 添加余额状态
-const modelBalances = ref<Record<string, ModelBalance>>({})
+const modelBalances = ref<Record<string, ModelBalance>>({});
 
 // 添加刷新状态
-const isRefreshing = ref(false)
+const isRefreshing = ref(false);
+
+// 添加密码对话框相关状态
+const passwordDialogVisible = ref(false);
+const passwordForm = ref({
+  password: '',
+  error: ''
+});
+const passwordResolve = ref<((value: { response: number; returnValue: string }) => void) | null>(null);
+
+// 显示密码对话框的方法
+const showPasswordDialog = async (_message: string): Promise<{ response: number; returnValue: string }> => {
+  passwordForm.value.password = '';
+  passwordForm.value.error = '';
+  passwordDialogVisible.value = true;
+  
+  return new Promise((resolve) => {
+    passwordResolve.value = resolve;
+  });
+};
+
+// 处理密码提交
+const handlePasswordSubmit = () => {
+  if (!passwordForm.value.password) {
+    passwordForm.value.error = '请输入密码';
+    return;
+  }
+  
+  if (passwordResolve.value) {
+    passwordResolve.value({
+      response: 0,
+      returnValue: passwordForm.value.password
+    });
+    passwordResolve.value = null;
+  }
+  
+  passwordDialogVisible.value = false;
+};
+
+// 处理密码取消
+const handlePasswordCancel = () => {
+  if (passwordResolve.value) {
+    passwordResolve.value({
+      response: 1,
+      returnValue: ''
+    });
+    passwordResolve.value = null;
+  }
+  
+  passwordDialogVisible.value = false;
+};
 
 // 更新余额信息
 const updateBalance = async (modelId: string) => {
-  const settings = localStorage.getItem(`wallet_${modelId}`)
-  if (!settings) return
-
-  const { apiKey, baseUrl } = JSON.parse(settings)
-  if (!apiKey) return
+  const settings = localStorage.getItem(`wallet_${modelId}`);
+  if (!settings) return;
 
   try {
-    modelBalances.value[modelId].status = 'loading'
+    const parsedSettings = JSON.parse(settings);
+    const encryptedApiKey = Uint8Array.from(parsedSettings.encryptedApiKey);
     
-    // 获取订阅信息
-    const subscriptionResponse = await fetch(`${baseUrl}/dashboard/billing/subscription`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
+    const { response, returnValue } = await showPasswordDialog('请输入密码以解密 API Key');
+    if (response !== 0) return; // 用户点击了取消
+    const password = returnValue;
+
+    try {
+      const salt = encryptedApiKey.slice(0, 16);
+      const iv = encryptedApiKey.slice(16, 28);
+      const encrypted = encryptedApiKey.slice(28);
+      
+      // 派生密钥
+      const key = await deriveKey(password, salt, 100000);
+      
+      // 解密
+      const decryptedBuffer = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        encrypted
+      );
+      
+      // 解码API Key
+      const decoder = new TextDecoder();
+      const decryptedApiKey = decoder.decode(decryptedBuffer);
+
+      // 设置请求头
+      const headers = {
+        'Authorization': `Bearer ${decryptedApiKey}`,
+        'Content-Type': 'application/json'
+      };
+
+      // 根据不同的模型使用不同的API端点
+      const baseUrl = parsedSettings.baseUrl || 'https://api.openai.com';
+      const subscriptionUrl = `${baseUrl}/v1/dashboard/billing/subscription`;
+      const usageUrl = `${baseUrl}/v1/dashboard/billing/usage`;
+
+      // 获取订阅信息
+      const subscriptionResponse = await fetch(subscriptionUrl, { headers });
+      if (!subscriptionResponse.ok) {
+        throw new Error('获取订阅信息失败');
       }
-    })
-    
-    if (!subscriptionResponse.ok) {
-      throw new Error('获取订阅信息失败')
-    }
-    
-    const subscriptionData = await subscriptionResponse.json()
-    
-    // 获取使用量信息
-    const usageResponse = await fetch(`${baseUrl}/dashboard/billing/usage`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
+      const subscriptionData = await subscriptionResponse.json();
+
+      // 获取使用量信息
+      const now = new Date();
+      const startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      
+      const usageResponse = await fetch(`${usageUrl}?start_date=${startDate}&end_date=${endDate}`, { headers });
+      if (!usageResponse.ok) {
+        throw new Error('获取使用量信息失败');
       }
-    })
-    
-    if (!usageResponse.ok) {
-      throw new Error('获取使用量信息失败')
-    }
-    
-    const usageData = await usageResponse.json()
-    
-    // 更新余额信息
-    modelBalances.value[modelId] = {
-      total: subscriptionData.hard_limit_usd || 0,
-      used: usageData.total_usage / 100 || 0, // 转换为美元
-      available: (subscriptionData.hard_limit_usd || 0) - (usageData.total_usage / 100 || 0),
-      status: 'success',
-      lastUpdate: Date.now()
+      const usageData = await usageResponse.json();
+
+      // 更新余额信息
+      modelBalances.value[modelId] = {
+        available: subscriptionData.hard_limit_usd || 0,
+        used: usageData.total_usage ? (usageData.total_usage / 100) : 0,
+        total: subscriptionData.hard_limit_usd || 0,
+        status: 'success',
+        lastUpdate: Date.now()
+      };
+    } catch (error) {
+      console.error('解密或获取余额失败:', error);
+      modelBalances.value[modelId].status = 'error';
+      ElMessage.error('获取余额失败');
     }
   } catch (error) {
-    console.error(`更新${modelId}余额失败:`, error)
-    modelBalances.value[modelId].status = 'error'
-    ElMessage.error(`更新${modelId}余额失败`)
+    console.error(`更新${modelId}余额失败:`, error);
+    modelBalances.value[modelId].status = 'error';
+    ElMessage.error(`更新${modelId}余额失败`);
   }
-}
+};
 
 // 刷新所有模型余额
 const refreshAllBalances = async () => {
-  if (isRefreshing.value) return
-  isRefreshing.value = true
-  
+  if (isRefreshing.value) return;
+  isRefreshing.value = true;
+
   try {
-    await Promise.all(Object.keys(modelBalances.value).map(updateBalance))
-    ElMessage.success('余额更新成功')
+    await Promise.all(Object.keys(modelBalances.value).map(updateBalance));
+    ElMessage.success('余额更新成功');
   } catch (error) {
-    console.error('更新余额失败:', error)
-    ElMessage.error('部分模型余额更新失败')
+    console.error('更新余额失败:', error);
+    ElMessage.error('部分模型余额更新失败');
   } finally {
-    isRefreshing.value = false
+    isRefreshing.value = false;
   }
-}
+};
 
 // 在组件挂载时自动更新余额
 onMounted(() => {
-  loadSavedModels() // 先加载已保存的模型
-  refreshAllBalances() // 然后更新所有模型的余额
-})
+  loadSavedModels(); // 先加载已保存的模型
+  refreshAllBalances(); // 然后更新所有模型的余额
+});
 
 // 添加新的 API Key
 const addNewKey = () => {
@@ -232,25 +341,53 @@ const addNewKey = () => {
     name: '',
     apiKey: '',
     baseUrl: ''
-  }
-  dialogVisible.value = true
-}
+  };
+  dialogVisible.value = true;
+};
 
 // 保存 API Key 设置
-const saveApiKey = () => {
+const saveApiKey = async () => {
   if (!currentModel.value.apiKey.trim()) {
-    ElMessage.error('请输入 API Key')
-    return
+    ElMessage.error('请输入 API Key');
+    return;
   }
-  
-  // 保存设置到 localStorage
+
+  const { response, returnValue } = await showPasswordDialog('请输入密码以加密 API Key');
+  if (response !== 0) return; // 用户点击了取消
+  const password = returnValue;
+
   try {
+    // 生成盐值和IV
+    const salt = new Uint8Array(16);
+    window.crypto.getRandomValues(salt);
+    const iv = new Uint8Array(12);
+    window.crypto.getRandomValues(iv);
+
+    // 派生密钥
+    const key = await deriveKey(password, salt, 100000);
+
+    // 加密 API Key
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(currentModel.value.apiKey);
+    const encrypted = await window.crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      dataBuffer
+    );
+
+    // 组合加密数据
+    const combined = new Uint8Array(salt.byteLength + iv.byteLength + encrypted.byteLength);
+    combined.set(salt, 0);
+    combined.set(iv, salt.byteLength);
+    combined.set(new Uint8Array(encrypted), salt.byteLength + iv.byteLength);
+
+    // 保存加密后的 API Key 和其他设置到 localStorage
     const settings = {
-      apiKey: currentModel.value.apiKey,
+      encryptedApiKey: Array.from(combined),
       baseUrl: currentModel.value.baseUrl
-    }
-    localStorage.setItem(`wallet_${currentModel.value.name}`, JSON.stringify(settings))
-    
+    };
+    localStorage.setItem(`wallet_${currentModel.value.name}`, JSON.stringify(settings));
+
     // 添加新模型的余额状态
     if (!modelBalances.value[currentModel.value.name]) {
       modelBalances.value[currentModel.value.name] = {
@@ -259,86 +396,110 @@ const saveApiKey = () => {
         total: 0,
         status: 'loading',
         lastUpdate: 0
-      }
+      };
     }
-    
-    ElMessage.success('设置已保存')
-    dialogVisible.value = false
-    
+
+    ElMessage.success('设置已保存');
+    dialogVisible.value = false;
+
     // 刷新余额
-    refreshAllBalances()
+    refreshAllBalances();
   } catch (error) {
-    console.error('保存设置失败:', error)
-    ElMessage.error('保存设置失败')
+    console.error('保存API Key失败:', error);
+    ElMessage.error('保存API Key失败');
   }
-}
+};
 
 // 查看 API Key
-const showApiKey = (modelName: string) => {
+const showApiKey = async (modelName: string) => {
   try {
-    const settings = localStorage.getItem(`wallet_${modelName}`)
+    const settings = localStorage.getItem(`wallet_${modelName}`);
     if (settings) {
-      const parsed = JSON.parse(settings)
-      currentModel.value = {
-        name: modelName,
-        apiKey: parsed.apiKey,
-        baseUrl: parsed.baseUrl
+      const parsedSettings = JSON.parse(settings);
+      const encryptedApiKey = Uint8Array.from(parsedSettings.encryptedApiKey);
+      
+      const { response, returnValue } = await showPasswordDialog('请输入密码以解密 API Key');
+      if (response !== 0) return; // 用户点击了取消
+      const password = returnValue;
+
+      try {
+        const salt = encryptedApiKey.slice(0, 16);
+        const iv = encryptedApiKey.slice(16, 28);
+        const encrypted = encryptedApiKey.slice(28);
+        
+        // 派生密钥
+        const key = await deriveKey(password, salt, 100000);
+        
+        // 解密
+        const decryptedBuffer = await window.crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          key,
+          encrypted
+        );
+        
+        // 解码API Key
+        const decoder = new TextDecoder();
+        const decryptedApiKey = decoder.decode(decryptedBuffer);
+
+        currentModel.value = {
+          name: modelName,
+          apiKey: decryptedApiKey,
+          baseUrl: parsedSettings.baseUrl
+        };
+        dialogVisible.value = true;
+      } catch (error) {
+        console.error('解密API Key失败:', error);
+        ElMessage.error('密码错误或解密失败');
       }
-      dialogVisible.value = true
     } else {
       currentModel.value = {
         name: modelName,
         apiKey: '',
         baseUrl: ''
-      }
-      dialogVisible.value = true
+      };
+      dialogVisible.value = true;
     }
   } catch (error) {
-    console.error('加载设置失败:', error)
-    ElMessage.error('加载设置失败')
+    console.error('加载设置失败:', error);
+    ElMessage.error('加载设置失败');
   }
-}
+};
 
-// 在 script setup 中添加初始化方法
+// 加载已保存的模型
 const loadSavedModels = () => {
   try {
-    // 遍历 localStorage 查找所有保存的模型设置
     for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
+      const key = localStorage.key(i);
       if (key?.startsWith('wallet_')) {
-        const modelId = key.replace('wallet_', '')
-        const settings = localStorage.getItem(key)
-        if (settings) {
-          // 为找到的每个模型初始化余额状态
-          modelBalances.value[modelId] = {
-            available: 0,
-            used: 0,
-            total: 0,
-            status: 'loading',
-            lastUpdate: 0
-          }
-        }
+        const modelId = key.replace('wallet_', '');
+        modelBalances.value[modelId] = {
+          available: 0,
+          used: 0,
+          total: 0,
+          status: 'loading',
+          lastUpdate: 0
+        };
       }
     }
   } catch (error) {
-    console.error('加载已保存的模型失败:', error)
-    ElMessage.error('加载已保存的模型失败')
+    console.error('加载已保存的模型失败:', error);
+    ElMessage.error('加载已保存的模型失败');
   }
-}
+};
 
 // 添加删除模型的功能
 const deleteModel = (modelId: string) => {
   try {
-    // 从 localStorage 中删除设置
-    localStorage.removeItem(`wallet_${modelId}`)
-    // 从状态中删除模型
-    delete modelBalances.value[modelId]
-    ElMessage.success('删除成功')
+    localStorage.removeItem(`wallet_${modelId}`);
+    delete modelBalances.value[modelId];
+    ElMessage.success('删除成功');
   } catch (error) {
-    console.error('删除模型失败:', error)
-    ElMessage.error('删除模型失败')
+    console.error('删除模型失败:', error);
+    ElMessage.error('删除模型失败');
   }
-}
+};
+
+// 解密 API Key 的辅助函数
 </script>
 
 <style scoped>

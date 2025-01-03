@@ -97,6 +97,9 @@
                   <span>📤 文件上传功能</span>
                 </div>
                 <div class="feature-item implemented">
+                  <span>🔌 插件系统</span>
+                </div>
+                <div class="feature-item implemented">
                   <span>💬 聊天记录本地存储</span>
                 </div>
                 <div class="feature-item implemented">
@@ -118,9 +121,6 @@
                   <span>🎨 主题自定义</span>
                 </div>
                 <div class="feature-item planned">
-                  <span>🔌 插件系统</span>
-                </div>
-                <div class="feature-item planned">
                   <span>📱 移动端适配</span>
                 </div>
                 <div class="feature-item planned">
@@ -131,9 +131,6 @@
                 </div>
                 <div class="feature-item planned">
                   <span>🔍 高级搜索功能</span>
-                </div>
-                <div class="feature-item planned">
-                  <span>🔒 端到端加密</span>
                 </div>
               </div>
             </div>

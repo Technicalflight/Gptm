@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, Notification, globalShortcut, BaseWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Notification, globalShortcut, BaseWindow, dialog } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -390,6 +390,46 @@ ipcMain.handle('open-linuxdo-auth', async (_event, url) => {
     return { success: false, error: (error as Error).message }
   }
 })
+
+// 添加密码对话框处理
+ipcMain.on('show-password-dialog', async (event, message) => {
+  const win = BrowserWindow.getFocusedWindow();
+  if (!win) {
+    event.reply('password-dialog-response', { response: 1, returnValue: '' });
+    return;
+  }
+
+  const result = await dialog.showMessageBox(win, {
+    title: '密码输入',
+    message: message,
+    type: 'question',
+    buttons: ['确定', '取消'],
+    defaultId: 0,
+    cancelId: 1
+  });
+
+  if (result.response === 0) {
+    // 如果用户点击确定，打开一个新的对话框用于输入密码
+    const promptResult = await dialog.showMessageBox(win, {
+      title: '输入密码',
+      message: '请输入密码：',
+      type: 'question',
+      buttons: ['确定', '取消'],
+      defaultId: 0,
+      cancelId: 1
+    });
+
+    event.reply('password-dialog-response', {
+      response: promptResult.response,
+      returnValue: promptResult.response === 0 ? 'dummy-password' : ''  // 实际应用中需要真实的密码输入
+    });
+  } else {
+    event.reply('password-dialog-response', {
+      response: 1,
+      returnValue: ''
+    });
+  }
+});
 
 // Helper function to handle OAuth callbacks
 

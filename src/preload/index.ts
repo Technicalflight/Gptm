@@ -96,3 +96,22 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.api = api
 }
+
+contextBridge.exposeInMainWorld('electron', {
+  ipcRenderer: {
+    send: (channel: string, ...args: any[]) => {
+      ipcRenderer.send(channel, ...args)
+    },
+    on: (channel: string, func: (...args: any[]) => void) => {
+      ipcRenderer.on(channel, (_event, ...args) => func(...args))
+    }
+  },
+  showPasswordDialog: async (message: string): Promise<{ response: number; returnValue: string }> => {
+    return new Promise((resolve) => {
+      ipcRenderer.once('password-dialog-response', (_, result) => {
+        resolve(result);
+      });
+      ipcRenderer.send('show-password-dialog', message);
+    });
+  }
+})

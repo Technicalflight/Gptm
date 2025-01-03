@@ -68,7 +68,7 @@
         <div class="header-tools">
           <el-button 
             type="text" 
-            @click="clearChatHistory"
+            @click="clearChat"
             :disabled="currentChat.messages.length === 0"
           >
             <el-icon><Delete /></el-icon>
@@ -173,6 +173,15 @@
           >
             <el-icon class="toolbar-icon"><Paperclip /></el-icon>
           </el-upload>
+          <el-tooltip content="知识库">
+            <el-icon 
+              class="toolbar-icon" 
+              @click="showKnowledgeBaseSettings"
+              :class="{ 'active': kbSettings.selectedKnowledgeBase }"
+            >
+              <Files />
+            </el-icon>
+          </el-tooltip>
         </div>
         <div class="input-box">
           <textarea 
@@ -378,24 +387,85 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 知识库设置对话框 -->
+    <el-dialog
+      v-model="kbSettingsVisible"
+      title="知识库设置"
+      width="600px"
+    >
+      <el-form :model="kbSettings" label-width="120px">
+        <el-form-item label="Embedding模型">
+          <el-select 
+            v-model="kbSettings.embeddingModel" 
+            placeholder="请选择Embedding模型"
+            @change="handleModelChange"
+          >
+            <el-option 
+              v-for="model in availableModels" 
+              :key="model.value" 
+              :label="model.label" 
+              :value="model.value" 
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="知识库">
+          <el-select 
+            v-model="kbSettings.selectedKnowledgeBase" 
+            placeholder="请选择知识库"
+            :disabled="!kbSettings.embeddingModel"
+          >
+            <el-option 
+              v-for="kb in knowledgeBases" 
+              :key="kb.id" 
+              :label="kb.name" 
+              :value="kb.id" 
+            />
+          </el-select>
+        </el-form-item>
+
+        <el-form-item label="模型状态" v-if="kbSettings.embeddingModel">
+          <el-tag :type="modelConfigured ? 'success' : 'danger'">
+            {{ modelConfigured ? '已配置' : '未配置' }}
+          </el-tag>
+          <el-link 
+            type="primary" 
+            style="margin-left: 10px"
+            @click="goToModelSettings"
+          >
+            配置模型
+          </el-link>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="kbSettingsVisible = false">取消</el-button>
+          <el-button 
+            type="danger" 
+            @click="disconnectKnowledgeBase"
+            v-if="kbSettings.selectedKnowledgeBase"
+          >
+            断开连接
+          </el-button>
+          <el-button type="primary" @click="saveKbSettings">
+            确定
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import OpenAI from 'openai'
-import { Setting, Delete } from '@element-plus/icons-vue'
+import { Setting, Delete, Files } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/vs2015.css'
-
-// 当前选中的模型
-const currentModelId = ref('openai')
-const currentChat = reactive({
-  title: 'OpenAI',
-  messages: [] as Message[]
-})
+import { useRouter } from 'vue-router'
 
 interface Message {
   id: string
@@ -403,6 +473,18 @@ interface Message {
   content: string
   timestamp: number
 }
+
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+// 当前选中的模型
+const currentModelId = ref('openai')
+const currentChat = reactive({
+  title: 'OpenAI',
+  messages: [] as Message[]
+})
 
 // 模型设置相关
 const modelSettingsVisible = ref(false)
@@ -752,74 +834,241 @@ const formatFileSize = (bytes: number) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// 修改发送消息的方法
-const sendMessage = async () => {
-  const content = messageInput.value.trim()
-  if ((!content && !selectedFile.value) || isLoading.value) return
-  
-  if (!currentModel.apiKey) {
-    ElMessage.error('请先在设置中配置 API Key')
-    return
+// 生成文档的嵌入向量
+const generateEmbeddings = async (text: string, embeddingSettings: any) => {
+  const response = await fetch(embeddingSettings.baseUrl + '/embeddings', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${embeddingSettings.apiKey}`
+    },
+    body: JSON.stringify({
+      model: embeddingSettings.type === 'custom' && embeddingSettings.name ? 
+             embeddingSettings.name : 
+             embeddingSettings.type === 'openai' ? 
+             'text-embedding-ada-002' : 
+             'jina-embeddings-v2',
+      input: text
+    })
+  })
+
+  if (!response.ok) {
+    throw new Error('生成嵌入向量失败')
   }
 
-  isLoading.value = true
-  let buffer = ''
+  const result = await response.json()
+  return result.data[0].embedding
+}
 
-  try {
-    let messageContent = content
+// 计算向量相似度
+const cosineSimilarity = (a: number[], b: number[]) => {
+  let dotProduct = 0
+  let normA = 0
+  let normB = 0
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i]
+    normA += a[i] * a[i]
+    normB += b[i] * b[i]
+  }
+  return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))
+}
 
-    // 如果有选择文件，读取文件内容
-    if (selectedFile.value) {
-      try {
-        const fileContent = await readFileContent(selectedFile.value)
-        messageContent = `${content}\n\n文件内容：\n\`\`\`\n${fileContent}\n\`\`\``
-      } catch (error) {
-        if (error instanceof Error) {
-          ElMessage.error(error.message)
-        } else {
-          ElMessage.error('读取文件失败')
+// 文档分段处理
+const splitDocumentIntoChunks = (text: string, maxChunkSize: number = 1000) => {
+  // 首先按照函数定义分割
+  const functionBlocks = text.split(/(?=export\s+async\s+function)/)
+  const chunks: string[] = []
+  
+  for (const block of functionBlocks) {
+    if (block.trim()) {
+      // 如果代码块太大，继续分割
+      if (block.length > maxChunkSize) {
+        const subChunks = block.split(/(?<=[;{}])\s*\n/).filter(chunk => chunk.trim())
+        for (let i = 0; i < subChunks.length; i += 5) {
+          chunks.push(subChunks.slice(i, i + 5).join('\n'))
         }
-        isLoading.value = false
-        return
+      } else {
+        chunks.push(block)
+      }
+    }
+  }
+  
+  return chunks
+}
+
+// 搜索相关文档
+const searchRelevantDocuments = async (query: string, kbFiles: any[], embeddingSettings: any) => {
+  try {
+    console.log('开始搜索文档，查询:', query)
+    console.log('知识库文件:', kbFiles)
+    
+    if (!kbFiles || kbFiles.length === 0) {
+      console.log('没有找到知识库文件')
+      return []
+    }
+
+    // 生成查询的嵌入向量
+    const queryEmbedding = await generateEmbeddings(query, embeddingSettings)
+    console.log('生成查询向量成功')
+    
+    // 为每个文档的每个分段计算相似度分数
+    const allChunks: Array<{
+      docId: string,
+      docName: string,
+      chunk: string,
+      embedding?: number[],
+      similarity?: number
+    }> = []
+
+    // 处理每个文档
+    for (const doc of kbFiles) {
+      console.log('处理文档:', doc.name)
+      
+      if (!doc.content) {
+        console.log('文档内容为空:', doc.name)
+        continue
+      }
+
+      // 将文档分段
+      const chunks = splitDocumentIntoChunks(doc.content)
+      console.log(`文档 ${doc.name} 分段数量:`, chunks.length)
+      
+      // 获取或生成每个分段的embedding
+      for (const chunk of chunks) {
+        const chunkEmbedding = await generateEmbeddings(chunk, embeddingSettings)
+        const similarity = cosineSimilarity(queryEmbedding, chunkEmbedding)
+        console.log('分段相似度:', similarity)
+        
+        allChunks.push({
+          docId: doc.id,
+          docName: doc.name,
+          chunk,
+          embedding: chunkEmbedding,
+          similarity
+        })
       }
     }
 
-    // 调用插件处理消息
-    messageContent = await handlePluginCall(messageContent)
-    console.log('处理后的消息内容:', messageContent) // 添加日志
+    console.log('所有分段数量:', allChunks.length)
 
-    const userMessage = {
-      id: Date.now().toString(),
-      role: 'user' as const,
-      content: messageContent,
+    // 按相似度排序并返回最相关的分段
+    const relevantChunks = allChunks
+      .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
+      .filter(chunk => (chunk.similarity || 0) > 0.3) // 降低相似度阈值到0.3
+      .slice(0, 5) // 最多返回5个最相关的分段
+
+    console.log('找到相关分段数量:', relevantChunks.length)
+    return relevantChunks
+  } catch (error) {
+    console.error('搜索相关文档失败:', error)
+    throw error
+  }
+}
+
+// 处理文档内容
+const processDocumentContent = (chunks: any[]) => {
+  if (!chunks.length) return ''
+
+  // 将相关分段组合成上下文
+  const context = chunks.map((chunk, index) => {
+    return `相关代码片段 ${index + 1} (相似度: ${(chunk.similarity || 0).toFixed(2)}):\n\`\`\`typescript\n${chunk.chunk}\n\`\`\`\n\n`
+  }).join('')
+
+  return '根据以下代码片段:\n\n' + context + '请详细分析代码功能，并用通俗易懂的语言解释这个工具的作用。如果代码片段不足以完整回答问题，请说明。'
+}
+
+// 修改发送消息方法
+const sendMessage = async () => {
+  if (!messageInput.value.trim() || isLoading.value) return
+  
+  isLoading.value = true
+  const messageId = Date.now().toString()
+  
+  try {
+    // 检查是否配置了知识库
+    const hasKnowledgeBase = kbSettings.value.selectedKnowledgeBase && 
+                            kbSettings.value.embeddingModel && 
+                            modelConfigured.value
+
+    let relevantContext = ''
+    
+    // 如果配置了知识库,先搜索相关文档
+    if (hasKnowledgeBase) {
+      try {
+        // 获取Embedding模型配置
+        const embeddingSettings = JSON.parse(localStorage.getItem('embedding_model_settings') || '{}')
+        console.log('Embedding模型设置:', embeddingSettings)
+        
+        // 获取知识库文档
+        const kbId = kbSettings.value.selectedKnowledgeBase
+        console.log('当前选择的知识库ID:', kbId)
+        
+        const kbFiles = JSON.parse(localStorage.getItem(`kb_files_${kbId}`) || '[]')
+        console.log('知识库文件列表:', kbFiles)
+        
+        if (kbFiles.length === 0) {
+          console.log('知识库为空')
+          ElMessage.warning('当前知识库没有文档')
+          // 移除 return 语句，让代码继续执行
+        } else {
+          // 搜索相关文档
+          const relevantDocs = await searchRelevantDocuments(messageInput.value, kbFiles, embeddingSettings)
+          console.log('找到的相关文档:', relevantDocs)
+          
+          // 处理文档内容作为上下文
+          relevantContext = processDocumentContent(relevantDocs)
+          console.log('生成的上下文:', relevantContext)
+        }
+      } catch (error) {
+        console.error('获取知识库内容失败:', error)
+        ElMessage.warning('知识库搜索失败,将使用普通对话模式')
+      }
+    }
+
+    // 处理插件
+    let processedContent = messageInput.value
+    if (enabledPlugins.value.length > 0) {
+      try {
+        processedContent = await handlePluginCall(processedContent)
+        console.log('插件处理后的内容:', processedContent)
+      } catch (error) {
+        console.error('插件处理失败:', error)
+      }
+    }
+
+    // 添加用户消息
+    const userMessage: Message = {
+      id: messageId,
+      role: 'user',
+      content: processedContent, // 使用处理后的内容
       timestamp: Date.now()
     }
+
+    // 添加到聊天历史
     currentChat.messages.push(userMessage)
     messageInput.value = ''
-    removeFile()
 
-    const assistantMessage = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant' as const,
-      content: '',
-      timestamp: Date.now()
-    }
-    currentChat.messages.push(assistantMessage)
+    // 保存当前状态
+    saveChatHistory(currentModelId.value, currentChat.messages)
 
-    // 统一使用 OpenAI 格式发送请求
-    const messages = currentChat.messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }))
+    // 构建消息列表
+    const messages: ChatMessage[] = [
+      { role: 'system', content: currentModel.systemRole },
+      ...currentChat.messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
+    ]
 
-    if (currentModel.systemRole) {
-      messages.unshift({
-        role: 'system',
-        content: currentModel.systemRole
-      })
+    // 如果有知识库上下文，添加到消息列表
+    if (hasKnowledgeBase && relevantContext) {
+      messages.splice(1, 0, { role: 'system', content: relevantContext })
     }
 
-    const response = await fetch(`${currentModel.baseUrl}/chat/completions`, {
+    console.log('发送到API的消息列表:', messages)
+
+    // 调用对话模型API
+    const response = await fetch(currentModel.baseUrl + '/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -829,69 +1078,46 @@ const sendMessage = async () => {
         model: currentModel.version,
         messages,
         temperature: currentModel.temperature,
-        max_tokens: currentModel.maxLength,
-        stream: true
+        max_tokens: currentModel.maxLength
       })
     })
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      throw new Error('API调用失败')
     }
 
-    const reader = response.body?.getReader()
-    const decoder = new TextDecoder()
-
-    while (reader) {
-      const { done, value } = await reader.read()
-      if (done) break
-      
-      // 将新的数据到缓冲区
-      buffer += decoder.decode(value, { stream: true })
-      
-      // 处理缓冲区中的完整行
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || '' // 保存最后一个不完整的行
-
-      for (const line of lines) {
-        if (line.trim() === '') continue
-        if (line === 'data: [DONE]') continue
-        if (!line.startsWith('data: ')) continue
-
-        try {
-          const data = JSON.parse(line.slice(6))
-          const content = data.choices[0]?.delta?.content || ''
-          if (content) {
-            assistantMessage.content += content
-            // 每次更新内容时保存历史
-            saveChatHistory(currentModelId.value, currentChat.messages)
-          }
-        } catch (e) {
-          console.warn('Failed to parse chunk:', line, e)
-        }
-      }
-    }
-
-    // 处理最后可能剩余的数据
-    if (buffer.trim()) {
+    const result = await response.json()
+    
+    // 对模型返回的内容也进行插件处理
+    let processedResponse = result.choices[0].message.content
+    if (enabledPlugins.value.length > 0) {
       try {
-        if (buffer.startsWith('data: ') && buffer !== 'data: [DONE]') {
-          const data = JSON.parse(buffer.slice(6))
-          const content = data.choices[0]?.delta?.content || ''
-          if (content) {
-            assistantMessage.content += content
-            saveChatHistory(currentModelId.value, currentChat.messages)
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to parse final chunk:', buffer, e)
+        processedResponse = await handlePluginCall(processedResponse)
+        console.log('模型回复经插件处理后的内容:', processedResponse)
+      } catch (error) {
+        console.error('处理模型回复时插件处理失败:', error)
       }
     }
-  } catch (error: unknown) {
+
+    // 添加助手回复
+    const assistantMessage: Message = {
+      id: Date.now().toString(),
+      role: 'assistant',
+      content: processedResponse,
+      timestamp: Date.now()
+    }
+    currentChat.messages.push(assistantMessage)
+
+    // 保存更新后的状态
+    saveChatHistory(currentModelId.value, currentChat.messages)
+  } catch (error: any) {
     console.error('发送消息失败:', error)
-    ElMessage.error(error instanceof Error ? error.message : '发送消息失败')
+    ElMessage.error('发送失败: ' + error.message)
+    // 移除失败的消息并保存状态
+    currentChat.messages = currentChat.messages.filter(msg => msg.id !== messageId)
+    saveChatHistory(currentModelId.value, currentChat.messages)
   } finally {
     isLoading.value = false
-    saveChatHistory(currentModelId.value, currentChat.messages)
   }
 }
 
@@ -946,7 +1172,7 @@ const resetBaseUrl = () => {
 }
 
 // 添加消息持久存储相关的方法
-const loadChatHistory = (modelId: string) => {
+const loadChatHistory = (modelId: string): Message[] => {
   try {
     const history = localStorage.getItem(`chat_history_${modelId}`)
     return history ? JSON.parse(history) : []
@@ -978,10 +1204,27 @@ onMounted(() => {
 })
 
 // 添加清空聊天历史的功能
-const clearChatHistory = () => {
-  currentChat.messages = []
-  saveChatHistory(currentModelId.value, [])
-  ElMessage.success('聊天历史已清空')
+const clearChat = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要清空当前对话吗？此操作不可恢复。',
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    currentChat.messages = []
+    // 清空本地存储的聊天记录
+    saveChatHistory(currentModelId.value, [])
+    ElMessage.success('已清空对话')
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('清空对话失败:', error)
+      ElMessage.error('清空失败')
+    }
+  }
 }
 
 // 添加 openModelSettings 方法
@@ -1358,6 +1601,165 @@ onMounted(() => {
   }
   // ... existing onMounted code ...
 });
+
+interface KnowledgeBase {
+  id: string
+  name: string
+  description: string
+  documentCount: number
+  lastUpdate: number
+}
+
+interface KbSettings {
+  embeddingModel: string
+  selectedKnowledgeBase: string
+}
+
+const router = useRouter()
+const kbSettingsVisible = ref(false)
+const kbSettings = ref<KbSettings>({
+  embeddingModel: '',
+  selectedKnowledgeBase: ''
+})
+
+const knowledgeBases = ref<KnowledgeBase[]>([])
+const modelConfigured = ref(false)
+
+const availableModels = [
+  { label: 'Jina', value: 'jina' },
+  { label: 'OpenAI', value: 'openai' },
+  { label: '自定义', value: 'custom' }
+]
+
+// 检查模型配置状态
+const checkModelConfiguration = async (modelType: string) => {
+  try {
+    const savedModelSettings = localStorage.getItem('embedding_model_settings')
+    if (savedModelSettings) {
+      const settings = JSON.parse(savedModelSettings)
+      return settings.type === modelType && 
+             !!settings.apiKey &&
+             (settings.type === 'openai' || !!settings.baseUrl)
+    }
+    return false
+  } catch (error) {
+    console.error('检查模型配置失败:', error)
+    return false
+  }
+}
+
+// 处理模型变更
+const handleModelChange = async () => {
+  modelConfigured.value = await checkModelConfiguration(kbSettings.value.embeddingModel)
+}
+
+// 显示知识库设置
+const showKnowledgeBaseSettings = async () => {
+  // 加载知识库列表
+  try {
+    const savedKbs = JSON.parse(localStorage.getItem('knowledge_bases') || '{}')
+    knowledgeBases.value = Object.values(savedKbs)
+  } catch (error) {
+    console.error('加载知识库列表失败:', error)
+    ElMessage.error('加载知识库列表失败')
+  }
+
+  // 加载已保存的设置
+  try {
+    const savedSettings = localStorage.getItem('chat_kb_settings')
+    if (savedSettings) {
+      kbSettings.value = JSON.parse(savedSettings)
+      modelConfigured.value = await checkModelConfiguration(kbSettings.value.embeddingModel)
+    }
+  } catch (error) {
+    console.error('加载设置失败:', error)
+  }
+
+  kbSettingsVisible.value = true
+}
+
+// 跳转到模型设置页面
+const goToModelSettings = () => {
+  router.push('/knowledge-base')
+  kbSettingsVisible.value = false
+}
+
+// 保存知识库设置
+const saveKbSettings = () => {
+  if (!kbSettings.value.embeddingModel) {
+    ElMessage.error('请选择Embedding模型')
+    return
+  }
+
+  if (!kbSettings.value.selectedKnowledgeBase) {
+    ElMessage.error('请选择知识库')
+    return
+  }
+
+  if (!modelConfigured.value) {
+    ElMessage.error('请先完成模型配置')
+    return
+  }
+
+  try {
+    localStorage.setItem('chat_kb_settings', JSON.stringify(kbSettings.value))
+    ElMessage.success('保存成功')
+    kbSettingsVisible.value = false
+  } catch (error) {
+    console.error('保存设置失败:', error)
+    ElMessage.error('保存失败')
+  }
+}
+
+onMounted(async () => {
+  // ... existing onMounted code ...
+  
+  // 加载知识库设置
+  try {
+    const savedSettings = localStorage.getItem('chat_kb_settings')
+    if (savedSettings) {
+      kbSettings.value = JSON.parse(savedSettings)
+      modelConfigured.value = await checkModelConfiguration(kbSettings.value.embeddingModel)
+    }
+  } catch (error) {
+    console.error('加载知识库设置失败:', error)
+  }
+})
+
+// 监听模型切换,加载对应的聊天历史
+watch(currentModelId, (newModelId) => {
+  currentChat.messages = loadChatHistory(newModelId)
+})
+
+// 在 script setup 中添加断开连接的方法
+const disconnectKnowledgeBase = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要断开当前知识库连接吗？',
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    // 清空知识库设置
+    kbSettings.value.selectedKnowledgeBase = ''
+    kbSettings.value.embeddingModel = ''
+    
+    // 保存更新后的设置
+    localStorage.setItem('chat_kb_settings', JSON.stringify(kbSettings.value))
+    
+    ElMessage.success('已断开知识库连接')
+    kbSettingsVisible.value = false
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('断开知识库连接失败:', error)
+      ElMessage.error('断开连接失败')
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -2015,6 +2417,10 @@ onMounted(() => {
   color: #409eff;
 }
 
+.toolbar-icon.active {
+  color: #409eff;
+}
+
 .emoji-container {
   padding: 12px;
   max-height: 320px;
@@ -2148,5 +2554,23 @@ onMounted(() => {
 
 .remove-file:hover {
   color: #f56c6c;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-btn {
+  padding: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--el-text-color-regular);
+  transition: color 0.3s;
+}
+
+.action-btn:hover {
+  color: var(--el-color-primary);
 }
 </style> 
