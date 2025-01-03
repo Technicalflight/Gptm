@@ -96,6 +96,8 @@
 ![](./prompt.png)
 ![](./set.jpg)
 ![](./plugin.png)
+![](./embedding.png)
+
 
 ## 🛠️ 技术栈
 
